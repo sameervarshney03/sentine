@@ -99,7 +99,7 @@ class SentinelWorker(
                     trustedUntil = trustedUntil,
                     isRecentlyUsed = result.isRecentlyUsed,
                     skipReason = result.skipReason,
-                    reasons = result.events.joinToString("|")
+                    reasons = result.reasons.joinToString("|")
                 )
 
                 database.appRiskDao().insertAppRisk(appRisk)
@@ -115,7 +115,7 @@ class SentinelWorker(
                 )
 
                 if (!result.isRecentlyUsed && result.level == "HIGH") {
-                    result.events.forEach { detail ->
+                    result.reasons.forEach { detail ->
                         database.appRiskDao().insertEvent(
                             RiskEventEntity(
                                 packageName = appInfo.packageName,

@@ -102,7 +102,7 @@ class SentinelMonitorService : Service() {
                 highRiskCount++
                 highRiskApps.add(appRisk)
                 
-                result.events.forEach { detail ->
+                result.reasons.forEach { detail ->
                     database.appRiskDao().insertEvent(
                         RiskEventEntity(
                             packageName = appInfo.packageName,
