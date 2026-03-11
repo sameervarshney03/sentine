@@ -1,186 +1,320 @@
 package com.example.sentine.ui.screens
 
-import android.content.Context
-import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.DeleteSweep
-import androidx.compose.material.icons.filled.NotificationsActive
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Radar
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.sentine.ui.theme.DeepBlue
-import com.example.sentine.viewmodel.DashboardViewModel
-import kotlin.math.roundToInt
+import com.example.sentine.ui.components.SectionHeader
+import com.example.sentine.viewmodel.SettingsViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
-    viewModel: DashboardViewModel = viewModel()
+    viewModel: SettingsViewModel = viewModel()
 ) {
-    val context = LocalContext.current
-    val sharedPref = remember { context.getSharedPreferences("sentinel_prefs", Context.MODE_PRIVATE) }
-    
-    var showDeleteDialog by remember { mutableStateOf(false) }
-    var monitoringEnabled by remember { mutableStateOf(sharedPref.getBoolean("monitoring_enabled", true)) }
-    var scanFrequency by remember { mutableStateOf(sharedPref.getString("scan_frequency", "5 min") ?: "5 min") }
-    var notifyHighOnly by remember { mutableStateOf(sharedPref.getBoolean("notify_high_only", false)) }
-    var gracePeriod by remember { mutableStateOf(sharedPref.getInt("grace_period", 10).toFloat()) }
-    var themeMode by remember { mutableStateOf(sharedPref.getString("theme_mode", "System") ?: "System") }
+    val settings by viewModel.settings.collectAsState()
+    val context  = LocalContext.current
+    val scope    = rememberCoroutineScope()
+
+    var showFrequencySheet  by remember { mutableStateOf(false) }
+    var showQuietHoursSheet by remember { mutableStateOf(false) }
+    var showClearDialog     by remember { mutableStateOf(false) }
+
+    val hasUsagePermission = remember {
+        mutableStateOf(viewModel.hasUsageAccessPermission())
+    }
+
+    LaunchedEffect(Unit) {
+        hasUsagePermission.value = viewModel.hasUsageAccessPermission()
+    }
 
     Scaffold(
-        topBar = {
-            LargeTopAppBar(
-                title = { Text("Settings", fontWeight = FontWeight.Bold) },
-                colors = TopAppBarDefaults.largeTopAppBarColors(containerColor = MaterialTheme.colorScheme.background)
-            )
-        }
-    ) { padding ->
-        Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .statusBarsPadding(),
+        containerColor = Color(0xFF0A0E1A)
+    ) { paddingValues ->
+
+        LazyColumn(
             modifier = Modifier
-                .padding(padding)
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp)
+                .padding(paddingValues)
+                .navigationBarsPadding(),
+            contentPadding = PaddingValues(bottom = 32.dp)
         ) {
-            SettingsSection(title = "General") {
-                ThemeSelector(
-                    currentTheme = themeMode,
-                    onThemeChange = { 
-                        themeMode = it
-                        sharedPref.edit().putString("theme_mode", it).apply()
-                    }
-                )
-            }
 
-            SettingsSection(title = "Monitoring") {
-                SettingsSwitchItem(
-                    title = "Background Monitoring",
-                    desc = "Periodically scan apps for suspicious behavior",
-                    checked = monitoringEnabled,
-                    icon = Icons.Default.Radar,
-                    onCheckedChange = { 
-                        monitoringEnabled = it
-                        sharedPref.edit().putBoolean("monitoring_enabled", it).apply()
-                    }
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Text("Scan Frequency", style = MaterialTheme.typography.labelLarge, color = DeepBlue)
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("5 min", "15 min", "30 min").forEach { freq ->
-                        FilterChip(
-                            selected = scanFrequency == freq,
-                            onClick = { 
-                                scanFrequency = freq
-                                sharedPref.edit().putString("scan_frequency", freq).apply()
-                            },
-                            label = { Text(freq) },
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Text("Active Use Grace Period: ${gracePeriod.roundToInt()} min", style = MaterialTheme.typography.labelLarge, color = DeepBlue)
-                Slider(
-                    value = gracePeriod,
-                    onValueChange = { gracePeriod = it },
-                    onValueChangeFinished = {
-                        sharedPref.edit().putInt("grace_period", gracePeriod.roundToInt()).apply()
-                    },
-                    valueRange = 5f..30f,
-                    steps = 24
-                )
+            item {
                 Text(
-                    "SentinelAI will wait this long after you use an app before flagging its background behavior.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.Gray
+                    text     = "Settings",
+                    style    = MaterialTheme.typography.headlineMedium,
+                    color    = Color(0xFFF1F2F6),
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(
+                        start = 16.dp, top = 24.dp, 
+                        bottom = 8.dp
+                    )
                 )
             }
 
-            SettingsSection(title = "Notifications") {
-                SettingsSwitchItem(
-                    title = "Priority Alerts Only",
-                    desc = "Only notify for HIGH risk detections",
-                    checked = notifyHighOnly,
-                    icon = Icons.Default.NotificationsActive,
-                    onCheckedChange = { 
-                        notifyHighOnly = it
-                        sharedPref.edit().putBoolean("notify_high_only", it).apply()
+            item { SectionHeader(title = "MONITORING") }
+
+            item {
+                SettingsToggleRow(
+                    icon       = Icons.Filled.Shield,
+                    iconColor  = Color(0xFF4F8EF7),
+                    title      = "Background Monitoring",
+                    subtitle   = if (settings.monitoringEnabled)
+                                     "Active — scanning every ${settings.scanFrequencyMins} min"
+                                 else "Paused — tap to enable",
+                    checked    = settings.monitoringEnabled,
+                    onCheckedChange = { viewModel.setMonitoringEnabled(it) }
+                )
+            }
+
+            item {
+                SettingsClickRow(
+                    icon      = Icons.Filled.Timer,
+                    iconColor = Color(0xFF4F8EF7),
+                    title     = "Scan Frequency",
+                    subtitle  = viewModel.frequencyLabel(settings.scanFrequencyMins),
+                    value     = "${settings.scanFrequencyMins}m",
+                    enabled   = settings.monitoringEnabled,
+                    onClick   = { showFrequencySheet = true }
+                )
+            }
+
+            item {
+                SettingsToggleRow(
+                    icon      = Icons.Filled.BatteryAlert,
+                    iconColor = Color(0xFF7BED9F),
+                    title     = "Battery Saver",
+                    subtitle  = if (settings.batterySaver) "Pauses scanning when battery < 20%" else "Scans even on low battery",
+                    checked   = settings.batterySaver,
+                    onCheckedChange = { viewModel.setBatterySaver(it) }
+                )
+            }
+
+            item { SectionHeader(title = "ALERTS") }
+
+            item {
+                SettingsToggleRow(
+                    icon      = Icons.Filled.NotificationsActive,
+                    iconColor = Color(0xFFFF4757),
+                    title     = "High Risk Alerts",
+                    subtitle  = if (settings.highRiskAlerts) "Notifying for HIGH risk apps" else "HIGH risk notifications off",
+                    checked   = settings.highRiskAlerts,
+                    onCheckedChange = { viewModel.setHighRiskAlerts(it) }
+                )
+            }
+
+            item {
+                SettingsToggleRow(
+                    icon      = Icons.Filled.Notifications,
+                    iconColor = Color(0xFFFFA502),
+                    title     = "Medium Risk Alerts",
+                    subtitle  = if (settings.mediumRiskAlerts) "Notifying for MEDIUM risk apps" else "MEDIUM risk notifications off",
+                    checked   = settings.mediumRiskAlerts,
+                    onCheckedChange = { viewModel.setMediumRiskAlerts(it) }
+                )
+            }
+
+            item {
+                SettingsClickRow(
+                    icon      = Icons.Filled.DoNotDisturb,
+                    iconColor = Color(0xFFA4B0BE),
+                    title     = "Quiet Hours",
+                    subtitle  = if (settings.quietHoursEnabled) "${settings.quietHoursStart}:00 — ${settings.quietHoursEnd}:00" else "Disabled",
+                    value     = if (settings.quietHoursEnabled) "On" else "Off",
+                    onClick   = { showQuietHoursSheet = true }
+                )
+            }
+
+            item { SectionHeader(title = "PRIVACY") }
+
+            item {
+                SettingsClickRow(
+                    icon      = Icons.Filled.AdminPanelSettings,
+                    iconColor = if (hasUsagePermission.value) Color(0xFF2ED573) else Color(0xFFFF4757),
+                    title     = "Usage Stats Permission",
+                    subtitle  = if (hasUsagePermission.value) "Granted — monitoring active" else "Not granted — tap to enable",
+                    value     = if (hasUsagePermission.value) "✓" else "!",
+                    onClick   = {
+                        if (!hasUsagePermission.value) {
+                            viewModel.openUsageAccessSettings(context)
+                        }
                     }
                 )
             }
 
-            SettingsSection(title = "Data Management") {
-                Button(
-                    onClick = { viewModel.startScan() },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Icon(Icons.Default.PlayArrow, contentDescription = null)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Trigger Immediate Scan")
-                }
-
-                OutlinedButton(
-                    onClick = { showDeleteDialog = true },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                ) {
-                    Icon(Icons.Default.DeleteSweep, contentDescription = null)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Clear All Scan History")
-                }
+            item {
+                SettingsInfoRow(
+                    icon     = Icons.Filled.Lock,
+                    iconColor= Color(0xFF4F8EF7),
+                    title    = "Local Storage Only",
+                    subtitle = "All analysis data stays on your device. Nothing is sent to any server."
+                )
             }
 
-            HorizontalDivider(
-                modifier = Modifier.padding(vertical = 8.dp),
-                color = Color.Gray.copy(alpha = 0.5f)
-            )
-
-            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-                Text("SentinelAI v1.2.0", style = MaterialTheme.typography.labelMedium, color = Color.Gray)
-                Text("Privacy-focused Behavioral Monitor", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+            item {
+                SettingsDangerRow(
+                    icon     = Icons.Filled.DeleteForever,
+                    title    = "Clear All Data",
+                    subtitle = "Delete all scan results and reset settings",
+                    onClick  = { showClearDialog = true }
+                )
             }
-            
-            Spacer(modifier = Modifier.height(32.dp))
+
+            item { SectionHeader(title = "ABOUT") }
+
+            item {
+                SettingsInfoRow(
+                    icon      = Icons.Filled.Info,
+                    iconColor = Color(0xFF4F8EF7),
+                    title     = "App Version",
+                    subtitle  = "SentinelAI v1.0.0"
+                )
+            }
+
+            item {
+                SettingsInfoRow(
+                    icon      = Icons.Filled.Analytics,
+                    iconColor = Color(0xFF4F8EF7),
+                    title     = "AI Model Status",
+                    subtitle  = viewModel.getMLStatus()
+                )
+            }
+
+            item {
+                SettingsInfoRow(
+                    icon      = Icons.Filled.Group,
+                    iconColor = Color(0xFF4F8EF7),
+                    title     = "Team",
+                    subtitle  = "Gaurav · Ritesh · Sameer · Ayush"
+                )
+            }
         }
     }
 
-    if (showDeleteDialog) {
+    if (showFrequencySheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showFrequencySheet = false },
+            containerColor   = Color(0xFF111827),
+            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp)
+                    .navigationBarsPadding()
+            ) {
+                Text(
+                    text  = "Scan Frequency",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = Color(0xFFF1F2F6),
+                    fontWeight = FontWeight.Bold
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text(
+                    text  = "How often SentinelAI checks your apps",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color(0xFFA4B0BE)
+                )
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                val options = listOf(
+                    2    to "Every 2 minutes (charging only)",
+                    5    to "Every 5 minutes  ← recommended",
+                    15   to "Every 15 minutes",
+                    30   to "Every 30 minutes",
+                    9999 to "Manual only"
+                )
+
+                options.forEach { (minutes, label) ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                viewModel.setScanFrequency(minutes)
+                                showFrequencySheet = false
+                            }
+                            .padding(vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(
+                            selected = settings.scanFrequencyMins == minutes,
+                            onClick  = {
+                                viewModel.setScanFrequency(minutes)
+                                showFrequencySheet = false
+                            },
+                            colors = RadioButtonDefaults.colors(
+                                selectedColor   = Color(0xFF4F8EF7),
+                                unselectedColor = Color(0xFF57606F)
+                            )
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            text  = label,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = if (settings.scanFrequencyMins == minutes)
+                                        Color(0xFF4F8EF7)
+                                    else
+                                        Color(0xFFF1F2F6)
+                        )
+                    }
+                    if (minutes != 9999) {
+                        HorizontalDivider(color = Color(0xFF0A0E1A), thickness = 1.dp)
+                    }
+                }
+            }
+        }
+    }
+
+    if (showClearDialog) {
         AlertDialog(
-            onDismissRequest = { showDeleteDialog = false },
-            title = { Text("Reset Application Data?") },
-            text = { Text("This will permanently delete all scan results and security alerts. This cannot be undone.") },
+            onDismissRequest = { showClearDialog = false },
+            containerColor   = Color(0xFF1A2235),
+            title = {
+                Text(
+                    "Clear All Data?",
+                    color = Color(0xFFF1F2F6),
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Text(
+                    "This will delete all scan results, risk scores, and reset all settings. This cannot be undone.",
+                    color = Color(0xFFA4B0BE)
+                )
+            },
             confirmButton = {
-                TextButton(onClick = {
-                    viewModel.clearAllData()
-                    showDeleteDialog = false
-                }) {
-                    Text("RESET EVERYTHING", color = MaterialTheme.colorScheme.error)
+                TextButton(
+                    onClick = {
+                        viewModel.clearAllData()
+                        showClearDialog = false
+                    }
+                ) {
+                    Text("Clear Everything", color = Color(0xFFFF4757))
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showDeleteDialog = false }) {
-                    Text("CANCEL")
+                TextButton(onClick = { showClearDialog = false }) {
+                    Text("Cancel", color = Color(0xFF4F8EF7))
                 }
             }
         )
@@ -188,78 +322,235 @@ fun SettingsScreen(
 }
 
 @Composable
-fun SettingsSection(title: String, content: @Composable ColumnScope.() -> Unit) {
-    Column {
-        Text(
-            text = title.uppercase(),
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.Bold,
-            color = Color.Gray,
-            modifier = Modifier.padding(bottom = 12.dp)
-        )
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                content()
+fun SettingsToggleRow(
+    icon: ImageVector,
+    iconColor: Color,
+    title: String,
+    subtitle: String,
+    checked: Boolean,
+    enabled: Boolean = true,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(enabled = enabled) { 
+                onCheckedChange(!checked) 
             }
-        }
-    }
-}
-
-@Composable
-fun SettingsSwitchItem(title: String, desc: String, checked: Boolean, icon: ImageVector, onCheckedChange: (Boolean) -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Surface(
-            modifier = Modifier.size(40.dp),
-            shape = RoundedCornerShape(8.dp),
-            color = DeepBlue.copy(alpha = 0.1f)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .background(
+                    color = iconColor.copy(alpha = 0.12f),
+                    shape = RoundedCornerShape(10.dp)
+                ),
+            contentAlignment = Alignment.Center
         ) {
-            Icon(icon, contentDescription = null, tint = DeepBlue, modifier = Modifier.padding(8.dp))
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = iconColor,
+                modifier = Modifier.size(20.dp)
+            )
         }
-        Spacer(modifier = Modifier.width(16.dp))
+        Spacer(modifier = Modifier.width(14.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-            Text(desc, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+            Text(
+                text  = title,
+                style = MaterialTheme.typography.bodyLarge,
+                color = if (enabled) Color(0xFFF1F2F6) else Color(0xFF57606F),
+                fontWeight = FontWeight.Medium
+            )
+            Text(
+                text  = subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = Color(0xFFA4B0BE)
+            )
         }
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
+        Switch(
+            checked  = checked,
+            onCheckedChange = onCheckedChange,
+            enabled  = enabled,
+            colors   = SwitchDefaults.colors(
+                checkedThumbColor   = Color.White,
+                checkedTrackColor   = Color(0xFF4F8EF7),
+                uncheckedThumbColor = Color(0xFFA4B0BE),
+                uncheckedTrackColor = Color(0xFF1A2235)
+            )
+        )
     }
+    HorizontalDivider(
+        color = Color(0xFF0A0E1A),
+        thickness = 1.dp,
+        modifier = Modifier.padding(start = 70.dp)
+    )
 }
 
 @Composable
-fun ThemeSelector(currentTheme: String, onThemeChange: (String) -> Unit) {
-    Column {
-        Text("Appearance", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-        Spacer(modifier = Modifier.height(12.dp))
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("System", "Dark", "Light").forEach { mode ->
-                val isSelected = currentTheme == mode
-                OutlinedCard(
-                    onClick = { onThemeChange(mode) },
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.outlinedCardColors(
-                        containerColor = if (isSelected) DeepBlue.copy(alpha = 0.1f) else Color.Transparent
-                    ),
-                    border = BorderStroke(
-                        width = if (isSelected) 2.dp else 1.dp,
-                        brush = Brush.linearGradient(
-                            colors = if (isSelected) listOf(DeepBlue, DeepBlue) else listOf(Color.Gray.copy(alpha = 0.5f), Color.Gray.copy(alpha = 0.5f))
-                        )
-                    )
-                ) {
-                    Box(modifier = Modifier.padding(8.dp).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                        Text(
-                            text = mode,
-                            style = MaterialTheme.typography.labelMedium,
-                            color = if (isSelected) DeepBlue else MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-                }
-            }
+fun SettingsClickRow(
+    icon: ImageVector,
+    iconColor: Color,
+    title: String,
+    subtitle: String,
+    value: String,
+    enabled: Boolean = true,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .background(
+                    color = iconColor.copy(alpha = 0.12f),
+                    shape = RoundedCornerShape(10.dp)
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = iconColor,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+        Spacer(modifier = Modifier.width(14.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text  = title,
+                style = MaterialTheme.typography.bodyLarge,
+                color = if (enabled) Color(0xFFF1F2F6) else Color(0xFF57606F),
+                fontWeight = FontWeight.Medium
+            )
+            Text(
+                text  = subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = Color(0xFFA4B0BE)
+            )
+        }
+        Text(
+            text  = value,
+            style = MaterialTheme.typography.bodyMedium,
+            color = Color(0xFF4F8EF7),
+            fontWeight = FontWeight.SemiBold
+        )
+        Spacer(modifier = Modifier.width(4.dp))
+        Icon(
+            imageVector = Icons.Filled.ChevronRight,
+            contentDescription = null,
+            tint = Color(0xFF57606F),
+            modifier = Modifier.size(18.dp)
+        )
+    }
+    HorizontalDivider(
+        color = Color(0xFF0A0E1A),
+        thickness = 1.dp,
+        modifier = Modifier.padding(start = 70.dp)
+    )
+}
+
+@Composable
+fun SettingsInfoRow(
+    icon: ImageVector,
+    iconColor: Color,
+    title: String,
+    subtitle: String
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .background(
+                    color = iconColor.copy(alpha = 0.12f),
+                    shape = RoundedCornerShape(10.dp)
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = iconColor,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+        Spacer(modifier = Modifier.width(14.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text  = title,
+                style = MaterialTheme.typography.bodyLarge,
+                color = Color(0xFFF1F2F6),
+                fontWeight = FontWeight.Medium
+            )
+            Text(
+                text  = subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = Color(0xFFA4B0BE)
+            )
+        }
+    }
+    HorizontalDivider(
+        color = Color(0xFF0A0E1A),
+        thickness = 1.dp,
+        modifier = Modifier.padding(start = 70.dp)
+    )
+}
+
+@Composable
+fun SettingsDangerRow(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .background(
+                    color = Color(0xFFFF4757).copy(alpha = 0.12f),
+                    shape = RoundedCornerShape(10.dp)
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = Color(0xFFFF4757),
+                modifier = Modifier.size(20.dp)
+            )
+        }
+        Spacer(modifier = Modifier.width(14.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text  = title,
+                style = MaterialTheme.typography.bodyLarge,
+                color = Color(0xFFFF4757),
+                fontWeight = FontWeight.Medium
+            )
+            Text(
+                text  = subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = Color(0xFFA4B0BE)
+            )
         }
     }
 }

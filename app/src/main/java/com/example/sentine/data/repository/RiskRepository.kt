@@ -15,6 +15,10 @@ class RiskRepository(private val appRiskDao: AppRiskDao) {
 
     suspend fun insertAppRisk(appRisk: AppRiskEntity) = appRiskDao.insertAppRisk(appRisk)
 
+    suspend fun insertOrUpdate(appRisk: AppRiskEntity) = appRiskDao.insertOrUpdate(appRisk)
+
+    suspend fun insertAll(appRisks: List<AppRiskEntity>) = appRiskDao.insertAll(appRisks)
+
     suspend fun insertEvent(event: RiskEventEntity) = appRiskDao.insertEvent(event)
 
     suspend fun deleteAll() {

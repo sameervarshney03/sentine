@@ -59,6 +59,7 @@ class SentinelMonitorService : Service() {
         
         val apps = AppUtils.getInstalledApps(this)
         var highRiskCount = 0
+        val highRiskApps = mutableListOf<AppRiskEntity>()
 
         apps.forEach { appInfo ->
             val existing = database.appRiskDao().getAppRisk(appInfo.packageName)
@@ -87,9 +88,19 @@ class SentinelMonitorService : Service() {
             
             database.appRiskDao().insertAppRisk(appRisk)
             
+            // Feature 2: Save daily score history
+            database.appRiskDao().insertEvent(
+                RiskEventEntity(
+                    packageName = appInfo.packageName,
+                    eventType = "DAILY_SCORE",
+                    eventDetail = result.score.toString(),
+                    timestamp = System.currentTimeMillis()
+                )
+            )
+            
             if (!result.isRecentlyUsed && result.level == "HIGH") {
                 highRiskCount++
-                showHighRiskNotification(appRisk, result.events)
+                highRiskApps.add(appRisk)
                 
                 result.events.forEach { detail ->
                     database.appRiskDao().insertEvent(
@@ -105,6 +116,60 @@ class SentinelMonitorService : Service() {
         }
 
         updateSummaryNotification(highRiskCount)
+
+        if (highRiskApps.isNotEmpty()) {
+            serviceScope.launch {
+                delay(30000)
+                showBatchedNotification(highRiskApps)
+            }
+        }
+    }
+
+    private fun showBatchedNotification(apps: List<AppRiskEntity>) {
+        if (apps.isEmpty()) return
+
+        val reviewIntent = Intent(this, MainActivity::class.java).apply {
+            action = "com.example.sentine.ACTION_REVIEW_HIGH_RISK"
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        }
+        val reviewPendingIntent = PendingIntent.getActivity(this, 100, reviewIntent, PendingIntent.FLAG_IMMUTABLE)
+
+        val dismissIntent = Intent(this, com.example.sentine.receiver.NotificationActionReceiver::class.java).apply {
+            action = "com.example.sentine.DISMISS_ALL_ALERTS"
+            putExtra("NOTIFICATION_ID", BATCHED_NOTIFICATION_ID)
+        }
+        val dismissPendingIntent = PendingIntent.getBroadcast(this, 101, dismissIntent, PendingIntent.FLAG_IMMUTABLE)
+
+        val inboxStyle = NotificationCompat.InboxStyle()
+            .setBigContentTitle("${apps.size} apps flagged")
+            .setSummaryText("High Risk Alerts")
+        
+        apps.take(5).forEach { app ->
+            inboxStyle.addLine("• ${app.appName} showing suspicious behavior")
+        }
+        if (apps.size > 5) {
+            inboxStyle.addLine("... and ${apps.size - 5} more")
+        }
+
+        val appNamesText = apps.take(2).joinToString(", ") { it.appName }
+        val moreText = if (apps.size > 2) " and ${apps.size - 2} more " else " "
+        val contentText = "${apps.size} apps flagged — $appNamesText${moreText}are showing suspicious behavior"
+
+        val notification = NotificationCompat.Builder(this, CHANNEL_ID)
+            .setContentTitle("⚠️ SentinelAI Alert")
+            .setContentText(contentText)
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setStyle(inboxStyle)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .setContentIntent(reviewPendingIntent)
+            .addAction(0, "Review", reviewPendingIntent)
+            .addAction(0, "Dismiss All", dismissPendingIntent)
+            .setAutoCancel(true)
+            .build()
+
+        val manager = getSystemService(NotificationManager::class.java)
+        manager.notify(BATCHED_NOTIFICATION_ID, notification)
     }
 
     private fun showHighRiskNotification(app: AppRiskEntity, signals: List<String>) {
@@ -200,6 +265,7 @@ class SentinelMonitorService : Service() {
     companion object {
         private const val CHANNEL_ID = "sentinel_channel"
         private const val NOTIFICATION_ID = 1
+        private const val BATCHED_NOTIFICATION_ID = 2
         private const val GROUP_ALERTS = "com.example.sentine.ALERTS"
     }
 }

@@ -38,6 +38,11 @@ android {
     buildFeatures {
         compose = true
     }
+
+    androidResources {
+        noCompress += "tflite"
+    }
+
 }
 
 dependencies {
@@ -52,6 +57,7 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.material3.windowsizeclass)
     implementation(libs.androidx.material.icons.extended)
+    implementation("androidx.compose.ui:ui-text-google-fonts:1.7.5")
     
     // Room
     implementation(libs.androidx.room.runtime)
@@ -66,6 +72,11 @@ dependencies {
 
     // Coil
     implementation(libs.coil.compose)
+    implementation("io.coil-kt:coil-compose:2.6.0")
+
+    // Accompanist & Datastore
+    implementation("com.google.accompanist:accompanist-systemuicontroller:0.34.0")
+    implementation("androidx.datastore:datastore-preferences:1.0.0")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
@@ -74,4 +85,11 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
+
+    // TFLite — these 3 are now required (was 2 before)
+
+    implementation("org.tensorflow:tensorflow-lite:2.14.0")
+    implementation("org.tensorflow:tensorflow-lite-support:0.4.4")
+    implementation("org.tensorflow:tensorflow-lite-select-tf-ops:2.14.0")
+
 }

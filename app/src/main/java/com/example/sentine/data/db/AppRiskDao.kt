@@ -12,7 +12,13 @@ interface AppRiskDao {
     suspend fun getAppRisk(packageName: String): AppRiskEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertOrUpdate(appRisk: AppRiskEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAppRisk(appRisk: AppRiskEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(appRisks: List<AppRiskEntity>)
 
     @Update
     suspend fun updateAppRisk(appRisk: AppRiskEntity)
@@ -31,4 +37,13 @@ interface AppRiskDao {
 
     @Query("DELETE FROM risk_events")
     suspend fun deleteAllEvents()
+    
+    @Query("UPDATE app_risks SET isTrusted = :trusted WHERE packageName = :pkg")
+    suspend fun setTrusted(pkg: String, trusted: Boolean)
+
+    @Query("SELECT COUNT(*) FROM app_risks WHERE riskLevel = :level")
+    fun countByLevel(level: String): Flow<Int>
+
+    @Query("SELECT * FROM app_risks WHERE riskLevel = 'HIGH' ORDER BY riskScore DESC")
+    fun getHighRiskApps(): Flow<List<AppRiskEntity>>
 }

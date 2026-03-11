@@ -1,0 +1,34 @@
+{
+  "mean": [
+    20109.934413381696,
+    0.6956428739492203,
+    3.189514662787962,
+    174.20820945006523,
+    411.575823404846,
+    252792.68095570532
+  ],
+  "scale": [
+    56834.16455043953,
+    0.9201889564811074,
+    1.6072849976237733,
+    52.12276058760644,
+    993.239500149662,
+    1359816.6942722253
+  ],
+  "feature_names": [
+    "network_upload_rate",
+    "session_length",
+    "screen_off_activity",
+    "background_activity",
+    "packet_count",
+    "upload_variance"
+  ],
+  "actual_columns": [
+    "Network_TotalTransmittedBytes",
+    "Battery_service",
+    "Battery_wakelock",
+    "Process_total",
+    "Network_TotalTransmittedPackets",
+    "Network_TotalReceivedBytes"
+  ]
+}

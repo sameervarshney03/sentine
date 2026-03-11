@@ -1,0 +1,26 @@
+{
+  "model_file": "sentinel_classifier.tflite",
+  "scaler_file": "scaler_params.json",
+  "input_features": [
+    "network_upload_rate",
+    "session_length",
+    "screen_off_activity",
+    "background_activity",
+    "packet_count",
+    "upload_variance"
+  ],
+  "n_features": 6,
+  "output_classes": [
+    "safe",
+    "risky"
+  ],
+  "model_size_kb": 103.3,
+  "sklearn_accuracy": 1.0,
+  "tf_sklearn_agreement": 1.0,
+  "risk_thresholds": {
+    "safe": 0.25,
+    "low": 0.5,
+    "medium": 0.75,
+    "high": 1.0
+  }
+}
